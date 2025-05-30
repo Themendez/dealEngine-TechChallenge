@@ -1,0 +1,6 @@
+@dealEngine.backend_HostAddress = http://localhost:5172
+
+GET {{dealEngine.backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
