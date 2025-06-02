@@ -1,6 +1,9 @@
 ﻿using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Models;
+using dealEngine.AmadeusFlightApi.Models.FligthOffer;
+using dealEngine.AmadeusFlightApi.Models.Locations;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace dealEngine.AmadeusFlightApi.Controllers
 {
@@ -44,6 +47,36 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new ApiResponse<string> { Success = false, Error = ex.Message });
+            }
+        }
+
+
+        [HttpPost("flight-offers")]
+        public async Task<IActionResult> GetFlightOffers(FlightOfferRequest request)
+        {
+            try
+            {
+                var results = await _amadeusService.SearchFlightOffersAsync(request);
+                return Ok(results);
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(503, $"External API call failed: {ex.Message}");
+            }
+        }
+
+
+        [HttpPost("locations")]
+        public async Task<IActionResult> GetLocations(LocationSearchRequest request)
+        {
+            try
+            {
+                var results = await _amadeusService.SearchLocationsAsync(request);
+                return Ok(new ApiResponse<PagedResult<LocationResult>> { Success = true, Data = results });
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(503, $"External API call failed: {ex.Message}");
             }
         }
     }

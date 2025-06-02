@@ -1,7 +1,11 @@
-﻿using dealEngine.AmadeusFlightApi.Interfaces;
+﻿using AutoMapper;
+using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Models;
-using System.Globalization;
+using dealEngine.AmadeusFlightApi.Models.FligthOffer;
+using dealEngine.AmadeusFlightApi.Models.Locations;
+using Microsoft.AspNetCore.WebUtilities;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 
 namespace dealEngine.AmadeusFlightApi.Services
@@ -13,11 +17,13 @@ namespace dealEngine.AmadeusFlightApi.Services
         private readonly IConfiguration _config;
         private string? _token;
         private DateTime _tokenExpiresAt;
+        private readonly IMapper _mapper;
 
-        public AmadeusService(HttpClient httpClient, IConfiguration config)
+        public AmadeusService(HttpClient httpClient, IConfiguration config, IMapper mapper)
         {
             _httpClient = httpClient;
             _config = config;
+            _mapper = mapper;
         }
 
         public async Task<string> GetTokenAsync()
@@ -52,8 +58,17 @@ namespace dealEngine.AmadeusFlightApi.Services
         {
             var token = await GetTokenAsync();
 
-            var request = new HttpRequestMessage(HttpMethod.Get,
-                $"https://test.api.amadeus.com/v1/shopping/flight-destinations?origin={criteria.Origin}&maxPrice={criteria.MaxPrice}");
+            var queryParams = new Dictionary<string, string>
+            {
+                {"origin", criteria.Origin.ToUpper()}, 
+                {"oneWay",criteria.OneWay.ToString()},
+                {"nonStop", criteria.NonStop.ToString()},
+                {"maxPrice", criteria.MaxPrice.ToString()},
+                {"viewBy", criteria.ViewBy.ToString().ToUpper()},
+            };
+
+            var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/shopping/flight-destinations", queryParams);
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var response = await _httpClient.SendAsync(request);
@@ -69,10 +84,103 @@ namespace dealEngine.AmadeusFlightApi.Services
                 Price = d.GetProperty("price").GetProperty("total").GetString()!
             }).ToList();
 
-            return criteria.SortBy switch
+            return results;
+        }
+
+        public async Task<List<FlightOfferResult>> SearchFlightOffersAsync(FlightOfferRequest request)
+        {
+            var token = await GetTokenAsync();
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://test.api.amadeus.com/v2/shopping/flight-offers");
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(httpRequest);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+
+            var results = new List<FlightOfferResult>();
+            using var doc = JsonDocument.Parse(content);
+
+            var offers = doc.RootElement.GetProperty("data");
+
+            foreach (var offer in offers.EnumerateArray())
             {
-                "destination" => results.OrderBy(r => r.Destination).ToList(),
-                _ => results.OrderBy(r => r.Price).ToList()
+                if (!offer.TryGetProperty("itineraries", out var itineraries)) continue;
+
+                foreach (var itinerary in itineraries.EnumerateArray())
+                {
+                    if (!itinerary.TryGetProperty("segments", out var segments)) continue;
+
+                    foreach (var segment in segments.EnumerateArray())
+                    {
+                        var departure = segment.GetProperty("departure").GetProperty("iataCode").GetString();
+                        var arrival = segment.GetProperty("arrival").GetProperty("iataCode").GetString();
+                        var carrier = segment.GetProperty("carrierCode").GetString();
+                        var number = segment.GetProperty("number").GetString();
+                        var currency = segment.GetProperty("price").GetProperty("currency").GetString();
+                        var price = segment.GetProperty("price").GetProperty("total").GetString();
+
+                        results.Add(new FlightOfferResult
+                        {
+                            Origin = departure ?? string.Empty,
+                            Destination = arrival ?? string.Empty,
+                            Airline = carrier ?? string.Empty,
+                            FlightNumber = number ?? string.Empty,
+                            Price= price ?? string.Empty,
+                            Currency= currency ?? string.Empty
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        public async Task<PagedResult<LocationResult>> SearchLocationsAsync(LocationSearchRequest request)
+        {
+            var token = await GetTokenAsync();
+
+            var queryParams = new Dictionary<string, string>
+                {
+                    { "subType", request.SubType },
+                    { "keyword", request.Keyword },
+                    { "page[limit]", request.PageSize.ToString() },
+                    { "page[offset]", request.GetOffset().ToString() },
+                    { "sort", request.Sort },
+                    { "view", request.View },
+                    {"countryCode", request.CountryCode ?? string.Empty }
+                };
+
+            var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/reference-data/locations", queryParams);
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _httpClient.SendAsync(httpRequest);
+            response.EnsureSuccessStatusCode();
+
+            var responseString = await response.Content.ReadAsStringAsync();
+            var jsonDoc = JsonDocument.Parse(responseString);
+            var root = jsonDoc.RootElement;
+
+            var count = root.GetProperty("meta").GetProperty("count").GetInt32();
+
+            var mapped = root
+                .GetProperty("data")
+                .EnumerateArray()
+                .Select(item => _mapper.Map<LocationResult>(item))
+                .ToList();
+
+            return new PagedResult<LocationResult>
+            {
+                Total = count,
+                Limit = request.PageSize,
+                Offset = request.GetOffset(),
+                Data = mapped
             };
         }
     }

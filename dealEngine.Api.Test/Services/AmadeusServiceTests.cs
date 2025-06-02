@@ -1,4 +1,5 @@
-﻿using dealEngine.AmadeusFlightApi.Controllers;
+﻿using AutoMapper;
+using dealEngine.AmadeusFlightApi.Controllers;
 using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Models;
 using dealEngine.AmadeusFlightApi.Services;
@@ -15,6 +16,7 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
         private AmadeusService _service;
         private IConfiguration _config;
         private HttpClient _httpClient;
+        private readonly IMapper _mapper;
 
         private Mock<IAmadeusService> _amadeusMock;
         private FlightsController _controller;
@@ -33,7 +35,7 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
                 .Build();
 
             _httpClient = new HttpClient(new MockHttpMessageHandler()); // Puedes simular respuestas
-            _service = new AmadeusService(_httpClient, _config);
+            _service = new AmadeusService(_httpClient, _config, _mapper);
 
             _amadeusMock = new Mock<IAmadeusService>();
 
@@ -59,19 +61,19 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
             // Arrange
             var expectedResults = new List<FlightResult>
         {
-            new FlightResult { Destination = "NYC", Price = 150 },
-            new FlightResult { Destination = "LON", Price = 180 }
+            new FlightResult { Destination = "NYC", Price = "150" },
+            new FlightResult { Destination = "LON", Price = "180" }
         };
 
             _amadeusMock
-            .Setup(s => s.SearchFlightsAsync(new FlightPreference { Origin = "PAR", MaxPrice = 200, SortBy = "price" }))
+            .Setup(s => s.SearchFlightsAsync(new FlightPreference { Origin = "PAR", MaxPrice = 200, ViewBy = ViewByEnum.country }))
                 .ReturnsAsync(expectedResults);
 
             var input = new FlightPreference
             {
                 Origin = "PAR",
                 MaxPrice = 200,
-                SortBy = "price"
+                ViewBy = ViewByEnum.country
             };
 
             // Act
