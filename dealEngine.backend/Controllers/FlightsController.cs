@@ -19,7 +19,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             _tokenService = tokenService;
         }
 
-
+        /// <summary>
+        /// Obtiene un token de acceso de Amadeus API.
+        /// </summary>
         [HttpGet("token")]
         public async Task<IActionResult> GetToken()
         {
@@ -34,6 +36,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             }
         }
 
+        /// <summary>
+        /// Busca vuelos disponibles según los criterios indicados.
+        /// </summary>
         [HttpPost("search")]
         public async Task<IActionResult> SearchFlights(FlightPreference criteria)
         {
@@ -52,7 +57,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             }
         }
 
-
+        /// <summary>
+        /// Busca ofertas de vuelos según los criterios de preferencia de viaje.
+        /// </summary>
         [HttpPost("flight-offers")]
         public async Task<IActionResult> GetFlightOffers(FlightOfferRequest request)
         {
@@ -68,6 +75,11 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         }
 
 
+        /// <summary>
+        /// Busca aeropuertos y ciudades según el criterio proporcionado.
+        /// </summary>
+        /// <param name="request">Parámetros de búsqueda: palabra clave, país, tipo, orden, etc.</param>
+        /// <returns>Lista paginada de ubicaciones coincidentes.</returns>
         [HttpPost("locations")]
         public async Task<IActionResult> GetLocations(LocationSearchRequest request)
         {
