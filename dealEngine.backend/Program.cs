@@ -1,13 +1,18 @@
+using dealEngine.AmadeusFlightApi;
 using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
 builder.Services.AddControllers();
 builder.Services.Configure<AmadeusSettings>(builder.Configuration.GetSection("Amadeus"));
 builder.Services.AddHttpClient<IAmadeusTokenService, AmadeusTokenService>();
+
+builder.Services.AddHttpClient("AmadeusClient")
+    .SetHandlerLifetime(TimeSpan.FromMinutes(5))
+    .AddPolicyHandler(RetryPolicyProvider.GetRetryPolicy());
+
 builder.Services.AddHttpClient<IAmadeusService, AmadeusService>();
 
 
