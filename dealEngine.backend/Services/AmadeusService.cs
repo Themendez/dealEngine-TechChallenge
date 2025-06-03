@@ -70,6 +70,7 @@ namespace dealEngine.AmadeusFlightApi.Services
             var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/shopping/flight-destinations", queryParams);
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.amadeus+json"));
 
             var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
