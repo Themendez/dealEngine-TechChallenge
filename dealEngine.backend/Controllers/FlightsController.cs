@@ -19,7 +19,10 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             _tokenService = tokenService;
         }
 
-
+        /// <summary>
+        /// Gets a token from Amadeus
+        /// </summary>
+        /// <returns>Bearer token string</returns>
         [HttpGet("token")]
         public async Task<IActionResult> GetToken()
         {
@@ -37,6 +40,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         [HttpPost("search")]
         public async Task<IActionResult> SearchFlights(FlightPreference criteria)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             if (criteria == null)
             {
                 return BadRequest("Flight criteria cannot be null.");
@@ -56,10 +62,12 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         [HttpPost("flight-offers")]
         public async Task<IActionResult> GetFlightOffers(FlightOfferRequest request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
             try
             {
                 var results = await _amadeusService.SearchFlightOffersAsync(request);
-                return Ok(results);
+                return Ok(new ApiResponse<List<FlightOfferResult>> { Success = true, Data = results });
             }
             catch (HttpRequestException ex)
             {
@@ -71,6 +79,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         [HttpPost("locations")]
         public async Task<IActionResult> GetLocations(LocationSearchRequest request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
                 var results = await _amadeusService.SearchLocationsAsync(request);

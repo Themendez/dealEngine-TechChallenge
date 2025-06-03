@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.Configure<AmadeusSettings>(builder.Configuration.GetSection("Amadeus"));
 builder.Services.AddHttpClient<IAmadeusTokenService, AmadeusTokenService>();
 builder.Services.AddHttpClient<IAmadeusService, AmadeusService>();
 
@@ -14,10 +15,6 @@ builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(typeof(Program));
-
-// 5. (Optional) Config from appsettings.json
-builder.Services.Configure<AmadeusSettings>(
-    builder.Configuration.GetSection("Amadeus"));
 
 var app = builder.Build();
 
