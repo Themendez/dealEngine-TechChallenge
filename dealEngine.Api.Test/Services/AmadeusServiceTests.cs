@@ -2,23 +2,29 @@
 using dealEngine.AmadeusFlightApi.Controllers;
 using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Models;
+using dealEngine.AmadeusFlightApi.Models.Locations;
 using dealEngine.AmadeusFlightApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
-using RichardSzalay.MockHttp;
+using Moq.Protected;
+using System.Net;
+using System.Text;
+using System.Text.Json;
 
 namespace dealEngine.AmadeusFlightApi.Tests.Services
 {
     [TestFixture]
     public class AmadeusServiceTests
     {
+        private Mock<HttpMessageHandler> _httpMessageHandlerMock;
         private AmadeusService _service;
         private IConfiguration _config;
         private HttpClient _httpClient;
-        private readonly IMapper _mapper;
+        private Mock<IMapper> _mapperMock;
 
         private Mock<IAmadeusService> _amadeusMock;
+        private Mock<IAmadeusTokenService> _tokenServiceMock;
         private FlightsController _controller;
 
         [SetUp]
@@ -34,25 +40,32 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
                 .AddInMemoryCollection(settings)
                 .Build();
 
-            _httpClient = new HttpClient(new MockHttpMessageHandler()); // Puedes simular respuestas
-            _service = new AmadeusService(_httpClient, _config, _mapper);
+            //_httpClient = new HttpClient(new MockHttpMessageHandler());
+            _httpMessageHandlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
+            _httpMessageHandlerMock.Protected()
+             .Setup("Dispose", ItExpr.IsAny<bool>());
+
+            _httpClient = new HttpClient(_httpMessageHandlerMock.Object)
+            {
+                BaseAddress = new Uri("https://test.api.amadeus.com/")
+            };
+
+            _mapperMock = new Mock<IMapper>();
+
+
+            _tokenServiceMock = new Mock<IAmadeusTokenService>();
+
+            _service = new AmadeusService(_httpClient, _config, _tokenServiceMock.Object, _mapperMock.Object);
 
             _amadeusMock = new Mock<IAmadeusService>();
 
-            _controller = new FlightsController(_amadeusMock.Object);
+            _controller = new FlightsController(_amadeusMock.Object, _tokenServiceMock.Object);
         }
 
         [TearDown]
         public void TearDown()
         {
             _httpClient?.Dispose();
-        }
-
-        [Test]
-        public async Task GetTokenAsync_ShouldReturnToken()
-        {
-            var token = await _service.GetTokenAsync();
-            Assert.IsNotNull(token);
         }
 
         [Test]
@@ -66,8 +79,11 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
         };
 
             _amadeusMock
-            .Setup(s => s.SearchFlightsAsync(new FlightPreference { Origin = "PAR", MaxPrice = 200, ViewBy = ViewByEnum.country }))
-                .ReturnsAsync(expectedResults);
+     .Setup(s => s.SearchFlightsAsync(It.Is<FlightPreference>(
+         p => p.Origin == "PAR" &&
+              p.MaxPrice == 200 &&
+              p.ViewBy == ViewByEnum.country)))
+     .ReturnsAsync(expectedResults);
 
             var input = new FlightPreference
             {
@@ -84,6 +100,68 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
             var response = result.Value as ApiResponse<List<FlightResult>>;
             Assert.IsTrue(response.Success);
             Assert.AreEqual(2, response.Data.Count);
+        }
+
+
+        [Test]
+        public async Task SearchLocationsAsync_ReturnsExpectedPagedResult()
+        {
+
+            var request = new LocationSearchRequest
+            {
+                SubType = "CITY",
+                Keyword = "MUC",
+                PageSize = 10,
+                PageNumber = 1,
+                Sort = "analytics.travelers.score",
+                View = "FULL",
+                CountryCode = "DE"
+            };
+
+            string fakeToken = "fake_token";
+            string jsonResponse = @"
+            {
+              ""meta"": { ""count"": 1 },
+              ""data"": [
+                {
+                  ""iataCode"": ""MUC"",
+                  ""name"": ""Munich International""
+                }
+              ]
+            }";
+
+            _tokenServiceMock
+                .Setup(x => x.GetTokenAsync())
+                .ReturnsAsync(fakeToken);
+
+            _httpMessageHandlerMock.Protected()
+                .Setup<Task<HttpResponseMessage>>("SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req =>
+                        req.Method == HttpMethod.Get &&
+                        req.RequestUri.ToString().Contains("reference-data/locations")),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+                });
+
+            _mapperMock
+                .Setup(m => m.Map<LocationResult>(It.IsAny<JsonElement>()))
+                .Returns(new LocationResult
+                {
+                    IataCode = "MUC",
+                    Name = "Munich International"
+                });
+
+            // Act
+            var result = await _service.SearchLocationsAsync(request);
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(1, result.Total);
+            Assert.AreEqual(1, result.Data.Count);
+            Assert.AreEqual("MUC", result.Data[0].IataCode);
         }
 
 

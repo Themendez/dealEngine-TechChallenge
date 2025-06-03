@@ -12,9 +12,11 @@ namespace dealEngine.AmadeusFlightApi.Controllers
     public class FlightsController : ControllerBase
     {
         private readonly IAmadeusService _amadeusService;
-        public FlightsController(IAmadeusService amadeusService)
+        private readonly IAmadeusTokenService _tokenService;
+        public FlightsController(IAmadeusService amadeusService, IAmadeusTokenService tokenService)
         {
             _amadeusService = amadeusService;
+            _tokenService = tokenService;
         }
 
 
@@ -23,7 +25,7 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         {
             try
             {
-                var token = await _amadeusService.GetTokenAsync();
+                var token = await _tokenService.GetTokenAsync();
                 return Ok(new ApiResponse<string> { Success = true, Data = token });
             }
             catch (Exception ex)
