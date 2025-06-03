@@ -95,8 +95,8 @@ namespace dealEngine.AmadeusFlightApi.Services
                         var arrival = segment.GetProperty("arrival").GetProperty("iataCode").GetString();
                         var carrier = segment.GetProperty("carrierCode").GetString();
                         var number = segment.GetProperty("number").GetString();
-                        var currency = segment.GetProperty("price").GetProperty("currency").GetString();
-                        var price = segment.GetProperty("price").GetProperty("total").GetString();
+                        var currency = offer.GetProperty("price").GetProperty("currency").GetString();
+                        var price = offer.GetProperty("price").GetProperty("total").GetString();
 
                         results.Add(new FlightOfferResult
                         {

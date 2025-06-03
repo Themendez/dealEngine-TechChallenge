@@ -6,7 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient<IAmadeusTokenService, AmadeusTokenService>();
 builder.Services.AddHttpClient<IAmadeusService, AmadeusService>();
+
 
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
