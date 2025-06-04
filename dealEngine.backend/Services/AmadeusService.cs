@@ -4,6 +4,7 @@ using dealEngine.AmadeusFlightApi.Models;
 using dealEngine.AmadeusFlightApi.Models.FligthOffer;
 using dealEngine.AmadeusFlightApi.Models.Locations;
 using Microsoft.AspNetCore.WebUtilities;
+using Polly.Retry;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -14,17 +15,18 @@ namespace dealEngine.AmadeusFlightApi.Services
     {
 
         private readonly HttpClient _httpClient;
-        private readonly IConfiguration _config;
         private readonly IAmadeusTokenService _tokenService;
         private readonly IMapper _mapper;
+        private readonly string _baseUrl;
 
-        public AmadeusService(HttpClient httpClient, IConfiguration config, IAmadeusTokenService tokenService, IMapper mapper)
+        public AmadeusService(HttpClient httpClient, IConfiguration config, IAmadeusTokenService tokenService, IMapper mapper, ILogger<AmadeusService> logger)
         {
             _httpClient = httpClient;
-            _config = config;
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _mapper = mapper;
+            _baseUrl = config["Amadeus:BaseUrl"] ?? throw new ArgumentNullException("BaseUrl not configured");
         }
+
 
 
         public async Task<List<FlightResult>> SearchFlightsAsync(FlightPreference criteria)
@@ -33,20 +35,24 @@ namespace dealEngine.AmadeusFlightApi.Services
 
             var queryParams = new Dictionary<string, string>
             {
-                {"origin", criteria.Origin.ToUpper()}, 
+                {"origin", criteria.Origin.ToUpper()},
                 {"oneWay",criteria.OneWay.ToString()},
                 {"nonStop", criteria.NonStop.ToString()},
                 {"maxPrice", criteria.MaxPrice.ToString()},
                 {"viewBy", criteria.ViewBy.ToString().ToUpper()},
             };
+            var fullUrl = $"{_baseUrl}/v1/shopping/flight-destinations";
 
-            var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/shopping/flight-destinations", queryParams);
+            var url = QueryHelpers.AddQueryString(fullUrl, queryParams);
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.amadeus+json"));
 
+
             var response = await _httpClient.SendAsync(request);
+
             response.EnsureSuccessStatusCode();
+
 
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonDocument.Parse(json).RootElement.GetProperty("data");
@@ -65,7 +71,8 @@ namespace dealEngine.AmadeusFlightApi.Services
         {
             var token = await _tokenService.GetTokenAsync();
 
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://test.api.amadeus.com/v2/shopping/flight-offers");
+            var fullUrl = $"{_baseUrl}/v2/shopping/flight-offers";
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, fullUrl);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var json = JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
@@ -129,7 +136,9 @@ namespace dealEngine.AmadeusFlightApi.Services
                     {"countryCode", request.CountryCode ?? string.Empty }
                 };
 
-            var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/reference-data/locations", queryParams);
+            var fullUrl = $"{_baseUrl}/v1/reference-data/locations";
+
+            var url = QueryHelpers.AddQueryString(fullUrl, queryParams);
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
