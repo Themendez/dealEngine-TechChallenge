@@ -136,7 +136,9 @@ namespace dealEngine.AmadeusFlightApi.Services
                     {"countryCode", request.CountryCode ?? string.Empty }
                 };
 
-            var url = QueryHelpers.AddQueryString("https://test.api.amadeus.com/v1/reference-data/locations", queryParams);
+            var fullUrl = $"{_baseUrl}/v1/reference-data/locations";
+
+            var url = QueryHelpers.AddQueryString(fullUrl, queryParams);
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

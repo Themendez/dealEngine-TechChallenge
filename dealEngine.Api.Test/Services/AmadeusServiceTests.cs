@@ -2,13 +2,16 @@
 using dealEngine.AmadeusFlightApi.Controllers;
 using dealEngine.AmadeusFlightApi.Interfaces;
 using dealEngine.AmadeusFlightApi.Models;
+using dealEngine.AmadeusFlightApi.Models.FligthOffer;
 using dealEngine.AmadeusFlightApi.Models.Locations;
 using dealEngine.AmadeusFlightApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 
@@ -25,6 +28,7 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
 
         private Mock<IAmadeusService> _amadeusMock;
         private Mock<IAmadeusTokenService> _tokenServiceMock;
+        private Mock<ILogger<AmadeusService>> _loggerMock;
         private FlightsController _controller;
 
         [SetUp]
@@ -33,14 +37,15 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
             var settings = new Dictionary<string, string>
                 {
                     { "Amadeus:ClientId", "test-client-id" },
-                    { "Amadeus:ClientSecret", "test-secret" }
+                    { "Amadeus:ClientSecret", "test-secret" },
+                    { "Amadeus:BaseUrl", "https://test.api.amadeus.com/" }
+
                 };
 
             _config = new ConfigurationBuilder()
                 .AddInMemoryCollection(settings)
                 .Build();
 
-            //_httpClient = new HttpClient(new MockHttpMessageHandler());
             _httpMessageHandlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
             _httpMessageHandlerMock.Protected()
              .Setup("Dispose", ItExpr.IsAny<bool>());
@@ -51,14 +56,12 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
             };
 
             _mapperMock = new Mock<IMapper>();
-
-
             _tokenServiceMock = new Mock<IAmadeusTokenService>();
+            _loggerMock = new Mock<ILogger<AmadeusService>>();
 
-            _service = new AmadeusService(_httpClient, _config, _tokenServiceMock.Object, _mapperMock.Object);
+            _service = new AmadeusService(_httpClient, _config, _tokenServiceMock.Object, _mapperMock.Object, _loggerMock.Object);
 
             _amadeusMock = new Mock<IAmadeusService>();
-
             _controller = new FlightsController(_amadeusMock.Object, _tokenServiceMock.Object);
         }
 
@@ -164,7 +167,104 @@ namespace dealEngine.AmadeusFlightApi.Tests.Services
             Assert.AreEqual("MUC", result.Data[0].IataCode);
         }
 
+        [Test]
+        public async Task SearchFlightOffersAsync_ReturnsFlightOfferResults()
+        {
+            var dummyToken = "test-token";
+            _tokenServiceMock = new Mock<IAmadeusTokenService>();
+            _tokenServiceMock.Setup(x => x.GetTokenAsync()).ReturnsAsync(dummyToken);
 
+            var fakeJsonResponse = @"{
+            ""data"": [
+                {
+                    ""itineraries"": [
+                        {
+                            ""segments"": [
+                                {
+                                    ""departure"": { ""iataCode"": ""NYC"" },
+                                    ""arrival"": { ""iataCode"": ""MAD"" },
+                                    ""carrierCode"": ""IB"",
+                                    ""number"": ""625""
+                                }
+                            ]
+                        }
+                    ],
+                    ""price"": {
+                        ""total"": ""1234.56"",
+                        ""currency"": ""USD""
+                    }
+                }
+            ]
+        }";
+
+            _httpMessageHandlerMock.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(fakeJsonResponse, Encoding.UTF8, "application/json")
+            });
+
+
+            var request = new FlightOfferRequest
+            {
+                CurrencyCode = "USD",
+                OriginDestinations = new List<OriginDestination>
+            {
+                new OriginDestination
+                {
+                    Id = "1",
+                    OriginLocationCode = "NYC",
+                    DestinationLocationCode = "MAD",
+                    DepartureDateTimeRange = new DepartureDateTimeRange
+                    {
+                        Date = "2025-11-01",
+                        Time = "10:00:00"
+                    }
+                }
+            },
+                Travelers = new List<Traveler>
+            {
+                new Traveler { Id = "1", TravelerType = "ADULT" }
+            },
+                Sources = new List<string> { "GDS" },
+                SearchCriteria = new SearchCriteria
+                {
+                    MaxFlightOffers = 2,
+                    FlightFilters = new FlightFilters
+                    {
+                        CabinRestrictions = new List<CabinRestriction>
+                    {
+                        new CabinRestriction
+                        {
+                            Cabin = "BUSINESS",
+                            Coverage = "MOST_SEGMENTS",
+                            OriginDestinationIds = new List<string> { "1" }
+                        }
+                    }
+                    }
+                }
+            };
+
+            // Act
+            var result = await _service.SearchFlightOffersAsync(request);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].Origin, Is.EqualTo("NYC"));
+            Assert.That(result[0].Destination, Is.EqualTo("MAD"));
+            Assert.That(result[0].Airline, Is.EqualTo("IB"));
+            Assert.That(result[0].FlightNumber, Is.EqualTo("625"));
+            Assert.That(result[0].Price, Is.EqualTo("1234.56"));
+            Assert.That(result[0].Currency, Is.EqualTo("USD"));
+        }
     }
 
 }
+
+
