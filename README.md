@@ -153,6 +153,10 @@ dotnet test
 - Respuestas válidas del servicio simulado.
 - Casos de error y validaciones.
 
+## 📘 Documentación con Swagger
+
+Este proyecto incluye documentación automática generada con **Swagger (Swashbuckle)** para facilitar la exploración y prueba de la API.
+
 ## 📄 Consideraciones
 Se usa Polly para reintentos automáticos en errores 429 o problemas de red.
 Las credenciales sensibles se configuran por medio de variables de entorno o appsettings.json (no deben incluirse en el repositorio).
