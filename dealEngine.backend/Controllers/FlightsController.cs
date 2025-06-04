@@ -23,6 +23,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         /// Obtiene un token de acceso de Amadeus API.
         /// </summary>
         [HttpGet("token")]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetToken()
         {
             try
@@ -40,6 +43,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         /// Busca vuelos disponibles según los criterios indicados.
         /// </summary>
         [HttpPost("search")]
+        [ProducesResponseType(typeof(ApiResponse<List<FlightResult>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SearchFlights(FlightPreference criteria)
         {
             if (!ModelState.IsValid)
@@ -56,7 +62,7 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<string> { Success = false, Error = ex.Message });
+                return BadRequest(new ApiResponse<string> { Success = false, Error = ex.Message });
             }
         }
 
@@ -64,6 +70,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         /// Busca ofertas de vuelos según los criterios de preferencia de viaje.
         /// </summary>
         [HttpPost("flight-offers")]
+        [ProducesResponseType(typeof(ApiResponse<List<FlightOfferResult>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetFlightOffers(FlightOfferRequest request)
         {
             if (!ModelState.IsValid)
@@ -75,7 +84,7 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             }
             catch (HttpRequestException ex)
             {
-                return StatusCode(503, $"External API call failed: {ex.Message}");
+                return BadRequest(new ApiResponse<string> { Success = false, Error = ex.Message });
             }
         }
 
@@ -86,6 +95,9 @@ namespace dealEngine.AmadeusFlightApi.Controllers
         /// <param name="request">Parámetros de búsqueda: palabra clave, país, tipo, orden, etc.</param>
         /// <returns>Lista paginada de ubicaciones coincidentes.</returns>
         [HttpPost("locations")]
+        [ProducesResponseType(typeof(ApiResponse<PagedResult<LocationResult>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetLocations(LocationSearchRequest request)
         {
             if (!ModelState.IsValid)
@@ -98,7 +110,7 @@ namespace dealEngine.AmadeusFlightApi.Controllers
             }
             catch (HttpRequestException ex)
             {
-                return StatusCode(503, $"External API call failed: {ex.Message}");
+                return BadRequest (new ApiResponse<string> { Success = false, Error = ex.Message });
             }
         }
     }
