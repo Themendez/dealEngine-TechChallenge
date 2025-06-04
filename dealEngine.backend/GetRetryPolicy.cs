@@ -14,7 +14,8 @@ namespace dealEngine.AmadeusFlightApi
                     .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
                     (exception, timeSpan, retryCount, context) =>
                     {
-                        Console.WriteLine($"---- Retry {retryCount} encountered an error: {exception.Exception.Message}. Waiting {timeSpan} before next retry. ----");
+                        
+                        Console.WriteLine($"---- Retry {retryCount} encountered an error: {exception?.Exception}. Waiting {timeSpan} before next retry. ----");
                     });
         }
     }
