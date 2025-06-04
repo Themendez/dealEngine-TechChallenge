@@ -42,10 +42,10 @@ El proyecto implementa una API que permite buscar vuelos mediante la API Self-Se
 ```bash
 git clone https://github.com/Themendez/dealEngine-TechChallenge.git
 cd dealEngine-TechChallenge/dealEngine.backend
-
+```
 ### **2. Configura tus variables de entorno**
 Crea un archivo appsettings.Development.json o configura variables de entorno directamente.
-
+```json
 {
   "Amadeus": {
     "ClientId": "TU_CLIENT_ID",
@@ -53,10 +53,11 @@ Crea un archivo appsettings.Development.json o configura variables de entorno di
     "BaseUrl": "https://test.api.amadeus.com"
   }
 }
-
+```
 ### **3. Ejecuta el proyecto**
+```bash
   dotnet run
-
+```
 ## 🧪 Endpoints disponibles
 
 ### `POST /api/flights/search`
@@ -72,8 +73,9 @@ Busca destinos desde un origen según las preferencias del usuario.
   "maxPrice": 200,
   "viewBy": "DATE"
 }
+```
 ####📤 Response
-
+```json
 {
   "success": true,
   "data": [
@@ -85,7 +87,7 @@ Busca destinos desde un origen según las preferencias del usuario.
     }
   ]
 }
-
+```
 POST /api/flights/offers
 Busca ofertas completas de vuelo: itinerarios, aerolínea, número de vuelo y precio.
 
